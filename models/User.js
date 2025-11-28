@@ -16,21 +16,46 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: [true, 'كلمة المرور مطلوبة'],
+    required: function() {
+      return this.authProvider === 'local';
+    },
     minlength: 6
+  },
+  age: {
+    type: String,
+    validate: {
+      validator: function(v) {
+        if (!v) return true; // غير مطلوب لمستخدمي Google
+        return /^\d+$/.test(v) && parseInt(v) > 0 && parseInt(v) < 150;
+      },
+      message: 'العمر يجب أن يكون رقمًا صحيحًا بين 1 و 150'
+    }
   },
   role: {
     type: String,
     enum: ['patient', 'doctor', 'admin'],
     default: 'patient'
   },
+  authProvider: {
+    type: String,
+    enum: ['local', 'google'],
+    default: 'local'
+  },
   profileImage: {
-    type: String, // سيتم تخزين مسار الصورة
-    default: null
+    type: String, // سيخزن URL الصورة من Cloudinary
+  },
+  profileImagePublicId: {
+    type: String, // سيخزن Public ID للصورة في Cloudinary
   },
   specialization: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Specialization'
+  },
+  experienceYears: {
+    type: Number,
+    min: 0,
+    max: 60,
+    default: 0
   },
   availability: [{
     day: {
@@ -51,16 +76,23 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// تشفير كلمة المرور قبل الحفظ
+// تشفير كلمة المرور قبل الحفظ (للمستخدمين المحليين فقط)
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
-    next();
+  if (!this.isModified('password') || this.authProvider !== 'local') {
+    return next();
   }
-  this.password = await bcrypt.hash(this.password, 10);
+  
+  if (this.password) {
+    this.password = await bcrypt.hash(this.password, 10);
+  }
+  next();
 });
 
 // مقارنة كلمة المرور
 userSchema.methods.matchPassword = async function(enteredPassword) {
+  if (this.authProvider !== 'local') {
+    return false; // لمستخدمي Google، لا نقارن كلمات المرور
+  }
   return await bcrypt.compare(enteredPassword, this.password);
 };
 

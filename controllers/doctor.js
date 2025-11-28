@@ -15,89 +15,107 @@ const getDoctorProfile = async (req, res) => {
   }
 };
 
-// تحديث بيانات الطبيب
+// تحديث بيانات الطبيب (مدمج - شامل للبيانات الأساسية والتخصص والصورة)
 const updateDoctorProfile = async (req, res) => {
   try {
-    const { name, phone } = req.body;
+    const { 
+      name, 
+      phone, 
+      specialization, 
+      experienceYears,
+      profileImage 
+    } = req.body;
 
-    const doctor = await User.findByIdAndUpdate(
-      req.user._id,
-      { name, phone },
-      { new: true }
-    ).select('-password').populate('specialization', 'name');
+    // التحقق من صحة سنوات الخبرة
+    if (experienceYears && (experienceYears < 0 || experienceYears > 60)) {
+      return res.status(400).json({
+        success: false,
+        message: 'سنوات الخبرة يجب أن تكون بين 0 و 60 سنة'
+      });
+    }
 
-    res.json({ message: 'تم تحديث الملف الشخصي بنجاح', doctor });
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};
-
-// تحديث تخصص الطبيب
-const updateDoctorSpecialization = async (req, res) => {
-  try {
-    const { specialization } = req.body;
-
+    // التحقق من وجود التخصص إذا تم إرساله
     if (specialization) {
       const specExists = await Specialization.findById(specialization);
       if (!specExists) {
-        return res.status(404).json({ message: 'التخصص غير موجود' });
+        return res.status(404).json({
+          success: false,
+          message: 'التخصص غير موجود'
+        });
       }
+    }
+
+    // بناء كائن التحديث - فقط الحقول المرسلة
+    const updateData = {};
+    
+    if (name !== undefined) updateData.name = name;
+    if (phone !== undefined) updateData.phone = phone;
+    if (experienceYears !== undefined) updateData.experienceYears = experienceYears;
+    if (specialization !== undefined) updateData.specialization = specialization;
+    if (profileImage !== undefined) updateData.profileImage = profileImage;
+
+    // إذا لم يتم إرسال أي بيانات للتحديث
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'لم يتم إرسال أي بيانات للتحديث'
+      });
     }
 
     const doctor = await User.findByIdAndUpdate(
       req.user._id,
-      { specialization: specialization || null },
+      updateData,
       { new: true, runValidators: true }
     )
     .select('-password')
     .populate('specialization', 'name description');
 
-    res.json({ 
-      message: 'تم تحديث التخصص بنجاح', 
-      doctor 
+    res.json({
+      success: true,
+      message: 'تم تحديث الملف الشخصي بنجاح',
+      data: doctor
     });
   } catch (error) {
-    console.error('Error updating specialization:', error);
-    res.status(400).json({ 
-      message: error.message || 'فشل في تحديث التخصص' 
+    res.status(400).json({
+      success: false,
+      message: error.message
     });
   }
 };
 
-// الحصول على مواعيد الطبيب
+// باقي الدوال تبقى كما هي بدون تغيير
 const getDoctorAppointments = async (req, res) => {
   try {
-    const { status, date } = req.query;
+    const doctorId = req.user._id;
+    const { date, status } = req.query;
     
-    let filter = { doctor: req.user._id };
-    
-    if (status) {
-      filter.status = status;
-    }
+    const query = { doctor: doctorId };
     
     if (date) {
-      const startDate = new Date(date);
-      const endDate = new Date(date);
-      endDate.setDate(endDate.getDate() + 1);
-      
-      filter.date = {
-        $gte: startDate,
-        $lt: endDate
-      };
+      query.date = new Date(date);
     }
-
-    const appointments = await Appointment.find(filter)
-      .populate('patient', 'name email phone')
+    
+    if (status) {
+      query.status = status;
+    }
+    
+    const appointments = await Appointment.find(query)
+      .populate('patient', 'name email age phone profileImage')
       .populate('specialization', 'name')
       .sort({ date: 1, time: 1 });
-
-    res.json(appointments);
+    
+    res.json({
+      success: true,
+      data: appointments
+    });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
-// الحصول على تفاصيل موعد معين
 const getAppointmentDetails = async (req, res) => {
   try {
     const { id } = req.params;
@@ -106,7 +124,7 @@ const getAppointmentDetails = async (req, res) => {
       _id: id,
       doctor: req.user._id
     })
-    .populate('patient', 'name email phone')
+    .populate('patient', 'name email phone age')
     .populate('specialization', 'name');
 
     if (!appointment) {
@@ -119,7 +137,6 @@ const getAppointmentDetails = async (req, res) => {
   }
 };
 
-// إلغاء موعد من قبل الطبيب
 const cancelAppointment = async (req, res) => {
   try {
     const { id } = req.params;
@@ -150,7 +167,6 @@ const cancelAppointment = async (req, res) => {
   }
 };
 
-// إكمال الموعد وإضافة روشتة
 const completeAppointment = async (req, res) => {
   try {
     const { id } = req.params;
@@ -173,7 +189,6 @@ const completeAppointment = async (req, res) => {
       return res.status(400).json({ message: 'لا يمكن إكمال موعد ملغي' });
     }
 
-    // تحديث حالة الموعد
     appointment.status = 'completed';
     appointment.prescription = prescription;
     appointment.notes = notes;
@@ -181,7 +196,6 @@ const completeAppointment = async (req, res) => {
 
     await appointment.save();
 
-    // إرجاع البيانات مع معلومات إضافية
     const updatedAppointment = await Appointment.findById(appointment._id)
       .populate('patient', 'name email phone')
       .populate('doctor', 'name specialization')
@@ -197,7 +211,6 @@ const completeAppointment = async (req, res) => {
   }
 };
 
-// الحصول على إحصائيات الطبيب
 const getDoctorStats = async (req, res) => {
   try {
     const doctorId = req.user._id;
@@ -216,7 +229,6 @@ const getDoctorStats = async (req, res) => {
       status: 'cancelled' 
     });
 
-    // المواعيد القادمة (اليوم والغد)
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -242,7 +254,6 @@ const getDoctorStats = async (req, res) => {
   }
 };
 
-// الحصول على المواعيد المتاحة للطبيب
 const getDoctorAvailability = async (req, res) => {
   try {
     const doctor = await User.findById(req.user._id).select('availability');
@@ -252,17 +263,14 @@ const getDoctorAvailability = async (req, res) => {
   }
 };
 
-// تحديث المواعيد المتاحة للطبيب
 const updateDoctorAvailability = async (req, res) => {
   try {
     const { availability } = req.body;
 
-    // التحقق من صحة البيانات
     if (!Array.isArray(availability)) {
       return res.status(400).json({ message: 'بيانات غير صحيحة' });
     }
 
-    // تنظيف البيانات - إزالة الأيام بدون slots
     const cleanedAvailability = availability.filter(day => 
       day.slots && day.slots.length > 0
     );
@@ -286,14 +294,14 @@ const updateDoctorAvailability = async (req, res) => {
 };
 
 module.exports = {
-  updateDoctorProfile,
+  updateDoctorProfile, // الدالة المدمجة الجديدة
   getDoctorAppointments,
   cancelAppointment,
   getDoctorStats,
   getDoctorAvailability,
   updateDoctorAvailability,
   getDoctorProfile,
-  updateDoctorSpecialization,
   completeAppointment,
   getAppointmentDetails
+  // تم إزالة updateDoctorSpecialization لأنها مدمجة الآن
 };

@@ -1,24 +1,51 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const path = require('path');
-const multer = require('multer');
+const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/database');
+const hpp = require('hpp');
+const path = require('path');
 
 // تحميل متغيرات البيئة
 dotenv.config();
-
-// الاتصال بقاعدة البيانات
 connectDB();
 
 const app = express();
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// ========== الأمان الأساسي ========== //
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'https://your-app-name.vercel.app', // استبدل باسم تطبيقك
+    process.env.FRONTEND_URL // إضافة متغير بيئة للـ frontend URL
+  ].filter(Boolean),
+  credentials: true
+}));
 
-// servir الملفات الثابتة (للصور)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(express.json({ 
+  limit: '10mb' // زيادة الحد ليتناسب مع رفع الصور
+}));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// HPP - منع HTTP Parameter Pollution
+app.use(hpp({
+  checkBody: true,
+  checkBodyOnlyForContentType: 'application/json',
+  checkQuery: true
+}));
+
+// Rate Limiting أساسي
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 دقيقة
+  max: 1000 // زيادة الحد ليتناسب مع Vercel
+});
+app.use('/api/', limiter);
+
+// الملفات الثابتة (للتطوير المحلي فقط)
+if (process.env.NODE_ENV === 'development') {
+  app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+}
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
@@ -27,18 +54,23 @@ app.use('/api/doctor', require('./routes/doctor'));
 app.use('/api/patient', require('./routes/patient'));
 app.use('/api/specializations', require('./routes/specialization'));
 app.use('/api/upload', require('./routes/upload'));
-app.use('/api/public', require('./routes/public')); 
+app.use('/api/public', require('./routes/public'));
 
-// Route أساسي للتحقق من عمل السيرفر
+// Route الأساسي
 app.get('/', (req, res) => {
   res.json({ 
-    message: 'Welcome to Hospital Appointment System API',
-    version: '1.0.0'
+    message: 'Welcome to Re3aya Center Appointment System API',
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+// التصدير لـ Vercel
+module.exports = app;
+
+// التشغيل المحلي فقط
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });

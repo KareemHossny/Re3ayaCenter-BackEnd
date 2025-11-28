@@ -12,7 +12,7 @@ const getPublicDoctors = async (req, res) => {
       role: 'doctor',
       isActive: true 
     })
-    .select('name email phone specialization profileImage')
+    .select('name email phone specialization profileImage experienceYears')
     .populate('specialization', 'name description')
     .sort({ name: 1 });
 
@@ -26,7 +26,7 @@ const getPublicDoctors = async (req, res) => {
 const getPublicSpecializations = async (req, res) => {
   try {
     const specializations = await Specialization.find({ isActive: true })
-      .select('name description')
+      .select('name description image ')
       .sort({ name: 1 });
 
     res.json(specializations);
@@ -75,7 +75,7 @@ const getPublicDoctorDetails = async (req, res) => {
       role: 'doctor',
       isActive: true 
     })
-    .select('name email phone specialization profileImage availability')
+    .select('name email phone specialization profileImage availability experienceYears')
     .populate('specialization', 'name description');
 
     if (!doctor) {

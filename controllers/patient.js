@@ -77,8 +77,18 @@ const getAvailableSlots = async (req, res) => {
 const bookAppointment = async (req, res) => {
   try {
     const { doctorId, specializationId, date, time, notes } = req.body;
+    const patientId = req.user._id;
 
-    // التحقق من وجود الطبيب
+    // 1. جلب بيانات المريض أولاً للحصول على العمر
+    const patient = await User.findById(patientId);
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: 'المريض غير موجود'
+      });
+    }
+
+    // 2. التحقق من وجود الطبيب والتخصص
     const doctor = await User.findOne({ 
       _id: doctorId, 
       role: 'doctor',
@@ -86,33 +96,68 @@ const bookAppointment = async (req, res) => {
     });
     
     if (!doctor) {
-      return res.status(404).json({ message: 'الطبيب غير موجود أو التخصص غير متطابق' });
+      return res.status(404).json({
+        success: false,
+        message: 'الطبيب غير موجود أو التخصص غير متطابق'
+      });
     }
 
-    // التحقق من أن الموعد متاح
+    // 3. تحويل التاريخ والوقت
     const selectedDate = new Date(date);
-    const dayName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-    
-    const dayAvailability = doctor.availability.find(a => a.day === dayName);
-    if (!dayAvailability || !dayAvailability.slots.includes(time)) {
-      return res.status(400).json({ message: 'هذا الموعد غير متاح' });
+    const appointmentDateTime = new Date(`${selectedDate.toDateString()} ${time}`);
+
+    // 4. التحقق من أن الموعد في المستقبل
+    if (appointmentDateTime < new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: 'لا يمكن حجز موعد في الماضي'
+      });
     }
 
-    // التحقق من عدم وجود حجز مسبق في نفس الوقت
-    const existingAppointment = await Appointment.findOne({
+    // 5. التحقق من أن المريض ليس لديه موعد في نفس التوقيت
+    const existingPatientAppointment = await Appointment.findOne({
+      patient: patientId,
+      date: selectedDate,
+      time: time,
+      status: 'scheduled'
+    });
+
+    if (existingPatientAppointment) {
+      return res.status(400).json({
+        success: false,
+        message: 'لديك موعد آخر في نفس التوقيت. يرجى اختيار وقت آخر'
+      });
+    }
+
+    // 6. التحقق من توفر الموعد عند الطبيب
+    const dayName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    const dayAvailability = doctor.availability.find(a => a.day === dayName);
+    
+    if (!dayAvailability || !dayAvailability.slots.includes(time)) {
+      return res.status(400).json({
+        success: false,
+        message: 'هذا الموعد غير متاح'
+      });
+    }
+
+    // 7. التحقق من عدم وجود حجز مسبق لنفس الطبيب في نفس الوقت
+    const existingDoctorAppointment = await Appointment.findOne({
       doctor: doctorId,
       date: selectedDate,
       time: time,
       status: 'scheduled'
     });
 
-    if (existingAppointment) {
-      return res.status(400).json({ message: 'هذا الموعد محجوز بالفعل' });
+    if (existingDoctorAppointment) {
+      return res.status(400).json({
+        success: false,
+        message: 'هذا الموعد محجوز بالفعل. يرجى اختيار وقت آخر'
+      });
     }
 
-    // إنشاء الموعد
+    // 8. إنشاء الموعد
     const appointment = await Appointment.create({
-      patient: req.user._id,
+      patient: patientId,
       doctor: doctorId,
       specialization: specializationId,
       date: selectedDate,
@@ -120,20 +165,30 @@ const bookAppointment = async (req, res) => {
       notes: notes
     });
 
-    // إرجاع بيانات الموعد مع معلومات إضافية
+    // 9. إرجاع بيانات الموعد مع معلومات إضافية
     const newAppointment = await Appointment.findById(appointment._id)
-      .populate('doctor', 'name email')
-      .populate('specialization', 'name');
+      .populate('doctor', 'name email profileImage experienceYears')
+      .populate('specialization', 'name')
+      .populate('patient', 'name email age phone'); // إضافة phone هنا
 
-    res.status(201).json({ 
-      message: 'تم حجز الموعد بنجاح', 
-      appointment: newAppointment 
+    res.status(201).json({
+      success: true,
+      message: 'تم حجز الموعد بنجاح',
+      data: newAppointment
     });
+
   } catch (error) {
     if (error.code === 11000) {
-      return res.status(400).json({ message: 'هذا الموعد محجوز بالفعل' });
+      return res.status(400).json({
+        success: false,
+        message: 'هذا الموعد محجوز بالفعل'
+      });
     }
-    res.status(400).json({ message: error.message });
+    
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
@@ -149,15 +204,23 @@ const getPatientAppointments = async (req, res) => {
     }
 
     const appointments = await Appointment.find(filter)
-      .populate('doctor', 'name email phone')
+      .populate('doctor', 'name email phone profileImage experienceYears')
       .populate('specialization', 'name')
+      .populate('patient', 'name email age phone') // إضافة age و phone هنا
       .sort({ date: -1, time: -1 });
 
-    res.json(appointments);
+    res.json({
+      success: true,
+      data: appointments
+    });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(400).json({ 
+      success: false,
+      message: error.message 
+    });
   }
 };
+
 
 // إلغاء موعد من قبل المريض
 const cancelAppointment = async (req, res) => {

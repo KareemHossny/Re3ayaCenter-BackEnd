@@ -16,6 +16,7 @@ const appointmentSchema = new mongoose.Schema({
     ref: 'Specialization',
     required: true
   },
+  age:Number,
   date: {
     type: Date,
     required: true

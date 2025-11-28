@@ -11,6 +11,12 @@ const specializationSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  image: {
+    type: String, // URL الصورة من Cloudinary
+  },
+  imagePublicId: {
+    type: String, // Public ID للصورة في Cloudinary
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

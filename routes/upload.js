@@ -27,7 +27,7 @@ router.delete(
   deleteProfileImage
 );
 
-// الحصول على صورة البروفايل (عام - بدون مصادقة)
+// الحصول على صورة البروفايل
 router.get('/profile-image/:userId', getProfileImage);
 
 module.exports = router;

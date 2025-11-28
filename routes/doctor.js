@@ -7,7 +7,6 @@ const {
   getDoctorAvailability,
   updateDoctorAvailability,
   getDoctorProfile,
-  updateDoctorSpecialization,
   completeAppointment,
   getAppointmentDetails
 } = require('../controllers/doctor');
@@ -20,10 +19,9 @@ const router = express.Router();
 router.use(protect);
 router.use(authorize('doctor'));
 
-// ملف الطبيب الشخصي
+// ملف الطبيب الشخصي - تم دمج جميع عمليات التحديث في route واحد
 router.get('/profile', getDoctorProfile);
-router.put('/profile', updateDoctorProfile);
-router.put('/specialization', updateDoctorSpecialization);
+router.put('/profile', updateDoctorProfile); // تحديث شامل للبيانات
 
 // المواعيد
 router.get('/appointments', getDoctorAppointments);
