@@ -17,8 +17,7 @@ app.use(cors({
   origin: [
     'http://localhost:3000',
     'http://localhost:3001',
-    'https://your-app-name.vercel.app', // استبدل باسم تطبيقك
-    process.env.FRONTEND_URL // إضافة متغير بيئة للـ frontend URL
+    'https://reaaya-center.vercel.app'
   ].filter(Boolean),
   credentials: true
 }));
