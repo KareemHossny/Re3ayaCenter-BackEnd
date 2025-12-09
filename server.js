@@ -13,26 +13,19 @@ connectDB();
 const app = express();
 
 // ========== الأمان الأساسي ========== //
+app.use(express.json({ limit: '10mb', strict: true }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
 app.use(cors({
   origin: [
     'http://localhost:3000',
     'http://localhost:3001',
     'https://reaaya-center.vercel.app'
-  ].filter(Boolean),
+  ],
   credentials: true
 }));
 
-app.use(express.json({ 
-  limit: '10mb' // زيادة الحد ليتناسب مع رفع الصور
-}));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// HPP - منع HTTP Parameter Pollution
-app.use(hpp({
-  checkBody: true,
-  checkBodyOnlyForContentType: 'application/json',
-  checkQuery: true
-}));
 
 // Rate Limiting أساسي
 const limiter = rateLimit({
@@ -54,6 +47,9 @@ app.use('/api/patient', require('./routes/patient'));
 app.use('/api/specializations', require('./routes/specialization'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/public', require('./routes/public'));
+
+app.use(hpp({}));
+
 
 // Route الأساسي
 app.get('/', (req, res) => {

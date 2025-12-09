@@ -254,52 +254,11 @@ const getDoctorStats = async (req, res) => {
   }
 };
 
-const getDoctorAvailability = async (req, res) => {
-  try {
-    const doctor = await User.findById(req.user._id).select('availability');
-    res.json(doctor.availability);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};
-
-const updateDoctorAvailability = async (req, res) => {
-  try {
-    const { availability } = req.body;
-
-    if (!Array.isArray(availability)) {
-      return res.status(400).json({ message: 'بيانات غير صحيحة' });
-    }
-
-    const cleanedAvailability = availability.filter(day => 
-      day.slots && day.slots.length > 0
-    );
-
-    const doctor = await User.findByIdAndUpdate(
-      req.user._id,
-      { availability: cleanedAvailability },
-      { new: true, runValidators: true }
-    ).select('availability');
-
-    res.json({ 
-      message: 'تم تحديث المواعيد المتاحة بنجاح', 
-      availability: doctor.availability 
-    });
-  } catch (error) {
-    console.error('Error updating availability:', error);
-    res.status(400).json({ 
-      message: error.message || 'فشل في تحديث المواعيد المتاحة' 
-    });
-  }
-};
-
 module.exports = {
   updateDoctorProfile, // الدالة المدمجة الجديدة
   getDoctorAppointments,
   cancelAppointment,
   getDoctorStats,
-  getDoctorAvailability,
-  updateDoctorAvailability,
   getDoctorProfile,
   completeAppointment,
   getAppointmentDetails

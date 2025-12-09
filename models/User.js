@@ -57,13 +57,6 @@ const userSchema = new mongoose.Schema({
     max: 60,
     default: 0
   },
-  availability: [{
-    day: {
-      type: String,
-      enum: ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-    },
-    slots: [String]
-  }],
   phone: {
     type: String,
     trim: true

@@ -1,12 +1,12 @@
 const express = require('express');
 const {
   getDoctors,
-  getAvailableSlots,
   bookAppointment,
   getPatientAppointments,
   cancelAppointment,
   getPatientStats,
-  getDoctorDetails
+  getDoctorDetails,
+  getAvailableSlots
 } = require('../controllers/patient');
 const { protect } = require('../middleware/auth');
 const { authorize } = require('../middleware/role');
@@ -21,7 +21,6 @@ router.use(authorize('patient'));
 router.get('/doctors', getDoctors);
 router.get('/doctors/:doctorId', getDoctorDetails);
 
-// المواعيد المتاحة
 router.get('/available-slots/:doctorId', getAvailableSlots);
 
 // حجز المواعيد

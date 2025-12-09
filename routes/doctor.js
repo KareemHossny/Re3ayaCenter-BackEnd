@@ -4,12 +4,11 @@ const {
   getDoctorAppointments,
   cancelAppointment,
   getDoctorStats,
-  getDoctorAvailability,
-  updateDoctorAvailability,
   getDoctorProfile,
   completeAppointment,
   getAppointmentDetails
 } = require('../controllers/doctor');
+const doctorScheduleController = require('../controllers/doctorScheduleController');
 const { protect } = require('../middleware/auth');
 const { authorize } = require('../middleware/role');
 
@@ -19,9 +18,9 @@ const router = express.Router();
 router.use(protect);
 router.use(authorize('doctor'));
 
-// ملف الطبيب الشخصي - تم دمج جميع عمليات التحديث في route واحد
+// ملف الطبيب الشخصي
 router.get('/profile', getDoctorProfile);
-router.put('/profile', updateDoctorProfile); // تحديث شامل للبيانات
+router.put('/profile', updateDoctorProfile);
 
 // المواعيد
 router.get('/appointments', getDoctorAppointments);
@@ -32,8 +31,9 @@ router.put('/appointments/:id/complete', completeAppointment);
 // الإحصائيات
 router.get('/stats', getDoctorStats);
 
-// المواعيد المتاحة
-router.get('/availability', getDoctorAvailability);
-router.put('/availability', updateDoctorAvailability);
+// إدارة الجدول الزمني
+router.post('/schedule', doctorScheduleController.saveSchedule);      // حفظ الجدول
+router.get('/schedule', doctorScheduleController.getSchedule);        // جلب جدول يوم معين
+// router.get('/schedules', doctorScheduleController.getAllSchedules);   // جلب جميع الجداول (جديدة)
 
 module.exports = router;

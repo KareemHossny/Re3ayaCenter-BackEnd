@@ -16,7 +16,7 @@ const appointmentSchema = new mongoose.Schema({
     ref: 'Specialization',
     required: true
   },
-  age:Number,
+  age: Number,
   date: {
     type: Date,
     required: true
@@ -30,30 +30,17 @@ const appointmentSchema = new mongoose.Schema({
     enum: ['scheduled', 'completed', 'cancelled'],
     default: 'scheduled'
   },
-  prescription: {
-    type: String,
-    trim: true
-  },
-  notes: {
-    type: String,
-    trim: true
-  },
+  prescription: String,
+  notes: String,
   cancelledBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
-  cancellationReason: {
-    type: String,
-    trim: true
-  },
-  completedAt: {
-    type: Date
-  }
-}, {
-  timestamps: true
-});
+  cancellationReason: String,
+  completedAt: Date
+}, { timestamps: true });
 
-// لمنع الحجز المزدوج لنفس الطبيب في نفس الوقت
+// ✅ منع الحجز المكرر لنفس الطبيب
 appointmentSchema.index({ doctor: 1, date: 1, time: 1 }, { unique: true });
 
 module.exports = mongoose.model('Appointment', appointmentSchema);
