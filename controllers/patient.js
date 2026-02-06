@@ -72,6 +72,9 @@ const bookAppointment = async (req, res) => {
     // 3️⃣ تجهيز التاريخ
     const selectedDate = new Date(date);
     selectedDate.setHours(0, 0, 0, 0); // 🔹 استخدم setHours بدل setUTCHours لتفادي فرق التوقيت
+    const dayStart = new Date(selectedDate);
+    const dayEnd = new Date(selectedDate);
+    dayEnd.setHours(23, 59, 59, 999);
     console.log("✅ تحقق 3: التاريخ جاهز:", selectedDate);
 
     // 4️⃣ التأكد أن التاريخ في المستقبل
@@ -87,7 +90,7 @@ const bookAppointment = async (req, res) => {
     // 5️⃣ التحقق أن المريض ليس لديه موعد في نفس التوقيت
     const existingPatientAppointment = await Appointment.findOne({
       patient: patientId,
-      date: selectedDate,
+      date: { $gte: dayStart, $lt: dayEnd },
       time,
       status: 'scheduled'
     });
@@ -103,8 +106,8 @@ const bookAppointment = async (req, res) => {
     const doctorSchedule = await DoctorSchedule.findOne({
       doctor: doctorId,
       date: {
-        $gte: new Date(selectedDate.setHours(0, 0, 0, 0)),
-        $lt: new Date(selectedDate.setHours(23, 59, 59, 999))
+        $gte: dayStart,
+        $lt: dayEnd
       }
     });
     console.log("🔎 تحقق 5: جدول الطبيب:", doctorSchedule);
@@ -130,7 +133,7 @@ const bookAppointment = async (req, res) => {
     // 8️⃣ التحقق من عدم وجود حجز مسبق لهذا الطبيب في نفس الوقت
     const existingDoctorAppointment = await Appointment.findOne({
       doctor: doctorId,
-      date: selectedDate,
+      date: { $gte: dayStart, $lt: dayEnd },
       time,
       status: 'scheduled'
     });
@@ -148,7 +151,7 @@ const bookAppointment = async (req, res) => {
       patient: patientId,
       doctor: doctorId,
       specialization: specializationId,
-      date: selectedDate,
+      date: dayStart,
       time,
       notes
     });
@@ -334,7 +337,7 @@ const getAvailableSlots = async (req, res) => {
     });
 
     if (!schedule || !schedule.isWorkingDay) {
-      return res.json([]); // يوم إجازة أو لا يوجد جدول
+      return res.json({ availableSlots: [], bookedSlots: [], allSlots: [] }); // يوم إجازة أو لا يوجد جدول
     }
 
     // جلب المواعيد المحجوزة لهذا اليوم
@@ -351,7 +354,11 @@ const getAvailableSlots = async (req, res) => {
       time => !bookedTimes.includes(time)
     );
 
-    res.json(availableSlots);
+    res.json({
+      availableSlots,
+      bookedSlots: bookedTimes,
+      allSlots: schedule.availableTimes
+    });
   } catch (error) {
     console.error('❌ خطأ في جلب المواعيد المتاحة:', error);
     res.status(500).json({
