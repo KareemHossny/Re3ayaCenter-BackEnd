@@ -42,5 +42,10 @@ const appointmentSchema = new mongoose.Schema({
 
 // ✅ منع الحجز المكرر لنفس الطبيب
 appointmentSchema.index({ doctor: 1, date: 1, time: 1 }, { unique: true });
+// Prevent a patient from booking two appointments at the same time
+appointmentSchema.index(
+  { patient: 1, date: 1, time: 1 },
+  { unique: true, partialFilterExpression: { status: 'scheduled' } }
+);
 
 module.exports = mongoose.model('Appointment', appointmentSchema);
