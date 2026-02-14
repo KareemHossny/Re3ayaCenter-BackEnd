@@ -12,7 +12,7 @@ const doctorScheduleSchema = new mongoose.Schema({
     required: [true, 'التاريخ مطلوب']
   },
   availableTimes: {
-    type: [String],  // 🔴 تأكد من هذا السطر
+    type: [String],
     default: []
   },
   isWorkingDay: {
